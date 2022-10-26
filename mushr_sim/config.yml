@@ -1,0 +1,41 @@
+sensor:
+  n_samples: 1
+  theta_disc: 100
+  n_readings: 720
+  dt: 0.05
+  scan_method: rmgpu
+  d_max: 10
+
+planner:
+  n_sampled_points: 500
+  k_neighbor: 10
+  n_seg: 3 # how many segs
+  seg_len: 3 # 28  # where each seg length
+  branches: 9 # 3 for accel, and 3 for angle
+
+  vel_range: [2.5, 2.5]
+  theta_range: [-0.38, 0.38]
+  udim: 2
+
+  goal_dist_thresh: 1.0
+  w_goal: 200
+  w_coll: 100000
+  w_eff: 1.0
+
+  goal_idx: 0
+  start_idx: 0
+  goal_tol_dist: 0.5
+  dist_map_path: None
+  viz_last: False
+  viz_freq: 1
+
+robot:
+  init_s: [-7, 18, 2.8]
+
+seed: 1007
+nt: 5
+safe_threshold: 0.2
+c_space_blur: 0
+dt: 0.05
+viz_last: False
+viz_freq: 1

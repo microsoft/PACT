@@ -1,0 +1,126 @@
+seed: 42
+
+dataset_dir_entry: "./data"
+
+trainer:
+  default_root_dir: outputs
+  num_nodes: 1
+  accelerator: gpu
+  strategy: ddp_find_unused_parameters_false
+
+  min_epochs: 1
+  max_epochs: 30
+  enable_progress_bar: true
+
+  #sync_batchnorm: True
+  enable_checkpointing: True
+  resume_from_checkpoint: null
+
+logger:
+  tensorboard:
+    _target_: pytorch_lightning.loggers.tensorboard.TensorBoardLogger
+    save_dir: ${trainer.default_root_dir}/logs
+    name: null
+    version: null
+    log_graph: False
+    default_hp_metric: False
+    prefix: ""
+
+callbacks:
+  checkpoint:
+    _target_: pytorch_lightning.callbacks.ModelCheckpoint
+    dirpath: "${trainer.default_root_dir}/checkpoints/"
+    monitor: "val/loss" # name of the logged metric which determines when model is improving
+    mode: "min" # "max" means higher metric value is better, can be also "min"
+    save_top_k: 1 # save k best models (determined by above metric)
+    save_last: True # additionaly always save model from last epoch
+    verbose: False
+    filename: "epoch_{epoch:03d}"
+    auto_insert_metric_name: False
+
+  early_stopping:
+    _target_: pytorch_lightning.callbacks.EarlyStopping
+    monitor: "val/loss" # name of the logged metric which determines when model is improving
+    mode: "min" # "max" means higher metric value is better, can be also "min"
+    patience: 100 # how many validation epochs of not improving until training stops
+    min_delta: 0 # minimum change in the monitored metric needed to qualify as an improvement
+
+  model_summary:
+    _target_: pytorch_lightning.callbacks.RichModelSummary
+    max_depth: -1
+
+  progress:
+    _target_: pytorch_lightning.callbacks.RichProgressBar
+
+  lr_mon:
+    _target_: pytorch_lightning.callbacks.LearningRateMonitor
+    logging_interval: "epoch"
+
+  timer:
+    _target_: pytorch_lightning.callbacks.Timer
+    interval: "epoch"
+    verbose: True
+
+data:
+  _target_: datamodules.habitat_datamodule.HabitatDataModule
+  file_params:
+    dataset_dir: "${dataset_dir_entry}/expert_data"
+    train_ann_file_name: "pointnav_hm3d_train_10_percent_with_maps_fixed_sai.json"
+    val_ann_file_name: "pointnav_hm3d_train_10_percent_with_maps_fixed_sai.json"
+
+  map_params:
+    map_recon_dim: 64
+    load_gt_map: False
+
+  train_params:
+    train_dataset_fraction: 1.0
+    val_dataset_fraction: 1.0
+    clip_len: 16
+    flatten_img: False
+    img_dim: 224
+    rebalance_samples: False
+    num_bins: 5
+    state_tokenizer: ${model.input_config.state.tokenizer}
+
+  num_workers: 6
+  batch_size: 32
+  pin_memory: False
+
+model:
+  _target_: models.pretrain.PACTPretrain
+  optimizer_config:
+    lr: 1e-4
+    weight_decay_gpt: 0.01
+    weight_decay_rest: 0.0001
+    betas: [0.9, 0.95]
+
+  scheduler_config:
+    warmup_ratio: 0.1
+    warmup_start_lr: 1e-6
+    min_lr: 1e-6
+
+  input_config:
+    state:
+      tokenizer: resnet18
+      input_type: continuous
+      tokenizer_kwargs:
+        n_channel: 3
+
+    action:
+      tokenizer: simple_action
+      input_type: discrete
+      tokenizer_kwargs:
+        action_dim: 4
+
+  gpt_config:
+    n_embd: 128
+    n_layer: 12
+    n_head: 8
+    embd_pdrop: 0.1
+    resid_pdrop: 0.1
+    attn_pdrop: 0.1
+    seq_len: ${data.train_params.clip_len}
+
+  head_config:
+    n_embd: ${model.gpt_config.n_embd}
+    seq_len: ${data.train_params.clip_len}

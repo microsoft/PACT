@@ -1,0 +1,3 @@
+[submodule "mushr_sim/range_libc"]
+	path = mushr_sim/range_libc
+	url = https://github.com/saihv/range_libc
